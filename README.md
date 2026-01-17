@@ -21,6 +21,7 @@ This project will be executed with the highest possible standard of engineering 
 
 ## 4. Project Structure
 
-- `/docs`: Contains detailed conceptual and technical documentation for each sketch.
-- `/src`: Contains the source code for the sketches, organized by sketch.
+- `/sketches`: Contains the source code and documentation for each sketch.
+  - Each sketch folder (e.g., `/sketches/01-emergence`) is a self-contained unit including its `sketch.js` (logic), `index.html` (view), and `README.md` (documentation).
+- `index.html`: The main gallery page listing all sketches.
 - `README.md`: This file. The high-level overview of the project.
