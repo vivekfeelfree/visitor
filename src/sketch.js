@@ -1,58 +1,58 @@
 // Project: Visitor
 // Sketch 01: A Study of Emergent Behavior
 //
-// This file is the main entry point for the p5.js sketch.
-// It will contain the logic for the Boids simulation.
+// This file contains the complete logic for the Boids simulation,
+// including UI creation, simulation logic, and rendering.
 
-// --- Global Variables ---
-// We will define variables that need to be accessible across the sketch here.
+// --- Global UI Variables ---
+let alignSlider, cohesionSlider, separationSlider, perceptionSlider, boidsSlider;
+
+// --- Global Simulation Variables ---
 const flock = [];
 
-// Sliders for controlling the simulation parameters in real-time.
-let alignSlider, cohesionSlider, separationSlider;
-
 // --- p5.js Setup Function ---
-// This function runs once when the sketch is first loaded.
 function setup() {
-  // Create a canvas that fills the entire browser window.
   createCanvas(windowWidth, windowHeight);
+  // Set color mode to HSB (Hue, Saturation, Brightness) for intuitive color mapping.
+  colorMode(HSB, 360, 100, 100, 100);
 
-  // --- Slider Initialization ---
-  // Create sliders to control the weights of the three flocking rules.
-  // The sliders will have a range from 0 to 5 with a default value of 1.
-  // A step of 0.1 allows for fine-tuning.
-  
-  // Alignment Slider
-  createP('Alignment').style('color', '#FFF').position(10, 5);
-  alignSlider = createSlider(0, 5, 1, 0.1);
-  alignSlider.position(10, 40);
+  // --- UI Initialization ---
+  // Use the modular UI function (defined below) to create the control panels.
+  alignSlider = createSliderModule('Alignment', 'How much boids steer to match neighbors\' direction.', 10, { min: 0, max: 5, defaultValue: 1, step: 0.1 });
+  cohesionSlider = createSliderModule('Cohesion', 'How much boids steer towards the center of the flock.', 100, { min: 0, max: 5, defaultValue: 1, step: 0.1 });
+  separationSlider = createSliderModule('Separation', 'How much boids steer to avoid crowding neighbors.', 190, { min: 0, max: 5, defaultValue: 1.5, step: 0.1 });
+  perceptionSlider = createSliderModule('Perception', 'How far a boid can "see" its neighbors.', 280, { min: 0, max: 300, defaultValue: 50, step: 1 });
+  boidsSlider = createSliderModule('Boid Count', 'The total number of boids in the simulation.', 370, { min: 1, max: 150, defaultValue: 100, step: 1 });
 
-  // Cohesion Slider
-  createP('Cohesion').style('color', '#FFF').position(10, 45);
-  cohesionSlider = createSlider(0, 5, 1, 0.1);
-  cohesionSlider.position(10, 80);
-
-  // Separation Slider
-  createP('Separation').style('color', '#FFF').position(10, 85);
-  separationSlider = createSlider(0, 5, 1, 0.1);
-  separationSlider.position(10, 120);
-
+  // Attach an event listener to the boid count slider to dynamically change the flock size.
+  boidsSlider.input(resetFlock);
 
   // --- Boid Initialization ---
-  for (let i = 0; i < 150; i++) { // Increased boid count for a denser flock
-    flock.push(new Boid());
-  }
+  // Create the initial flock based on the slider's default value.
+  resetFlock();
 }
 
 // --- p5.js Draw Function ---
 function draw() {
   background(17, 17, 17);
 
+  // Update and display every boid in the flock
   for (let boid of flock) {
     boid.edges();
     boid.flock(flock);
     boid.update();
     boid.show();
+  }
+}
+
+/**
+ * Resets the flock by clearing the array and repopulating it
+ * based on the current value of the boidsSlider.
+ */
+function resetFlock() {
+  flock.length = 0; // Clear the existing flock array.
+  for (let i = 0; i < boidsSlider.value(); i++) {
+    flock.push(new Boid());
   }
 }
 
@@ -63,30 +63,26 @@ class Boid {
     this.velocity = p5.Vector.random2D();
     this.velocity.setMag(random(2, 4));
     this.acceleration = createVector();
-    this.maxForce = 0.2;
-    this.maxSpeed = 5;
-    this.perceptionRadius = 50;
+    this.maxForce = 0.2; // Maximum steering force
+    this.maxSpeed = 5;   // Maximum speed
   }
 
   edges() {
-    if (this.position.x > width) {
-      this.position.x = 0;
-    } else if (this.position.x < 0) {
-      this.position.x = width;
-    }
-    if (this.position.y > height) {
-      this.position.y = 0;
-    } else if (this.position.y < 0) {
-      this.position.y = height;
-    }
+    if (this.position.x > width) this.position.x = 0;
+    else if (this.position.x < 0) this.position.x = width;
+    if (this.position.y > height) this.position.y = 0;
+    else if (this.position.y < 0) this.position.y = height;
   }
 
+  // --- REFACTORED FLOCKING METHODS ---
+
   align(boids) {
+    const perceptionRadius = perceptionSlider.value();
     let steering = createVector();
     let total = 0;
     for (let other of boids) {
       let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-      if (other != this && d < this.perceptionRadius) {
+      if (other != this && d < perceptionRadius) {
         steering.add(other.velocity);
         total++;
       }
@@ -94,6 +90,7 @@ class Boid {
     if (total > 0) {
       steering.div(total);
       steering.setMag(this.maxSpeed);
+      // Steering formula: steer = desired - velocity
       steering.sub(this.velocity);
       steering.limit(this.maxForce);
     }
@@ -101,33 +98,41 @@ class Boid {
   }
 
   cohesion(boids) {
+    const perceptionRadius = perceptionSlider.value();
     let steering = createVector();
     let total = 0;
     for (let other of boids) {
       let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-      if (other != this && d < this.perceptionRadius) {
+      if (other != this && d < perceptionRadius) {
         steering.add(other.position);
         total++;
       }
     }
     if (total > 0) {
       steering.div(total);
-      steering.sub(this.position);
-      steering.setMag(this.maxSpeed);
-      steering.sub(this.velocity);
-      steering.limit(this.maxForce);
+      // A vector pointing from the location to the target
+      let desired = p5.Vector.sub(steering, this.position);
+      desired.setMag(this.maxSpeed);
+      // Steering formula: steer = desired - velocity
+      let steer = p5.Vector.sub(desired, this.velocity);
+      steer.limit(this.maxForce);
+      return steer;
     }
-    return steering;
+    return createVector();
   }
 
   separation(boids) {
+    const perceptionRadius = perceptionSlider.value();
     let steering = createVector();
     let total = 0;
     for (let other of boids) {
       let d = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-      if (other != this && d < this.perceptionRadius) {
+      // Only separate from very close neighbors
+      if (other != this && d < perceptionRadius / 2) {
+        // Calculate vector pointing away from neighbor
         let diff = p5.Vector.sub(this.position, other.position);
-        diff.div(d * d);
+        // Weight by distance (the closer it is, the stronger we repel)
+        diff.div(d); 
         steering.add(diff);
         total++;
       }
@@ -135,6 +140,7 @@ class Boid {
     if (total > 0) {
       steering.div(total);
       steering.setMag(this.maxSpeed);
+      // Steering formula: steer = desired - velocity
       steering.sub(this.velocity);
       steering.limit(this.maxForce);
     }
@@ -146,31 +152,37 @@ class Boid {
     let cohesion = this.cohesion(boids);
     let separation = this.separation(boids);
 
-    // Use the sliders' values to weight each force.
+    // Weight the forces using the sliders
     alignment.mult(alignSlider.value());
     cohesion.mult(cohesionSlider.value());
     separation.mult(separationSlider.value());
 
+    // Apply the forces to acceleration
     this.acceleration.add(alignment);
     this.acceleration.add(cohesion);
     this.acceleration.add(separation);
   }
 
   update() {
+    this.position.add(this.velocity);
     this.velocity.add(this.acceleration);
     this.velocity.limit(this.maxSpeed);
-    this.position.add(this.velocity);
-    this.acceleration.mult(0);
+    this.acceleration.mult(0); // Reset acceleration each frame
   }
 
   show() {
     const angle = this.velocity.heading() + PI / 2;
+    const speed = this.velocity.mag();
+    const hue = map(speed, 0, this.maxSpeed, 240, 0); // Blue to Red
+
     push();
     translate(this.position.x, this.position.y);
     rotate(angle);
     const size = 5;
-    fill(200, 200, 200, 150);
-    stroke(255);
+    
+    fill(hue, 90, 90, 80);
+    stroke(hue, 90, 100);
+    
     beginShape();
     vertex(0, -size * 2);
     vertex(-size, size * 2);
@@ -183,4 +195,44 @@ class Boid {
 // --- Window Resize Handling ---
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
+}
+
+// --- UI Helper Function ---
+/**
+ * Creates a complete slider module with a title, description, value display, and the slider itself.
+ */
+function createSliderModule(title, description, yPos, sliderConfig) {
+  const textContainer = createDiv();
+  textContainer.position(10, yPos);
+  textContainer.style('color', '#FFF');
+  textContainer.style('font-family', 'sans-serif');
+
+  const titleP = createP(title);
+  titleP.parent(textContainer);
+  titleP.style('margin', '0');
+  titleP.style('font-weight', 'bold');
+
+  const descP = createP(description);
+  descP.parent(textContainer);
+  descP.style('font-size', '12px');
+  descP.style('margin', '2px 0 10px 0');
+
+  const slider = createSlider(
+    sliderConfig.min,
+    sliderConfig.max,
+    sliderConfig.defaultValue,
+    sliderConfig.step
+  );
+  slider.position(10, yPos + 60);
+
+  const valueDisplay = createSpan(slider.value());
+  // Position the value display to the right of the slider
+  valueDisplay.position(slider.x + slider.width + 15, yPos + 40); 
+  valueDisplay.style('color', '#FFF');
+
+  slider.input(() => {
+    valueDisplay.html(slider.value());
+  });
+
+  return slider;
 }
